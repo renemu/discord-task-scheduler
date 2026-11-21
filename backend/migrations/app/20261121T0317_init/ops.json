@@ -1,0 +1,601 @@
+[
+  {
+    "id": "schema.public",
+    "label": "Create schema \"public\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres"
+    },
+    "precheck": [],
+    "execute": [
+      {
+        "description": "Create schema \"public\"",
+        "sql": "CREATE SCHEMA IF NOT EXISTS \"public\"",
+        "params": []
+      }
+    ],
+    "postcheck": []
+  },
+  {
+    "id": "table.task_logs",
+    "label": "Create table \"task_logs\"",
+    "summary": "Creates table \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"task_logs\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"task_logs\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"task_logs\"",
+        "sql": "CREATE TABLE \"public\".\"task_logs\" (\n  \"created_at\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"duration_ms\" int4,\n  \"executed_at\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"execution_id\" uuid NOT NULL,\n  \"http_status\" int4,\n  \"id\" uuid NOT NULL,\n  \"message\" text,\n  \"retry_count\" int4 DEFAULT 0 NOT NULL,\n  \"scheduled_for\" timestamptz(3),\n  \"status\" text NOT NULL,\n  \"task_id\" uuid NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"task_logs_duration_nonneg_2f6a87f3\" CHECK (duration_ms IS NULL OR duration_ms >= 0),\n  CONSTRAINT \"task_logs_retry_count_nonneg_01b8d94b\" CHECK (retry_count >= 0),\n  CONSTRAINT \"task_logs_status_check_4bf092de\" CHECK (\"status\" IN ('RUNNING', 'RETRYING', 'SUCCESS', 'FAILED'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"task_logs\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"task_logs\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "table.tasks",
+    "label": "Create table \"tasks\"",
+    "summary": "Creates table \"tasks\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "table",
+        "name": "tasks"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"tasks\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tasks\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "table \"tasks\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"tasks\"",
+        "sql": "CREATE TABLE \"public\".\"tasks\" (\n  \"created_at\" timestamptz(3) DEFAULT (now()) NOT NULL,\n  \"cron_expression\" character varying(100) NOT NULL,\n  \"id\" uuid NOT NULL,\n  \"last_execution_status\" text,\n  \"last_run_at\" timestamptz(3),\n  \"locked_at\" timestamptz(3),\n  \"locked_by\" character varying(100),\n  \"max_retry\" int4 DEFAULT 3 NOT NULL,\n  \"name\" character varying(255) NOT NULL,\n  \"next_run_at\" timestamptz(3),\n  \"payload\" jsonb NOT NULL,\n  \"retry_count\" int4 DEFAULT 0 NOT NULL,\n  \"status\" text DEFAULT 'ACTIVE' NOT NULL,\n  \"timezone\" character varying(64) DEFAULT 'UTC' NOT NULL,\n  \"updated_at\" timestamptz(3) NOT NULL,\n  \"webhook_url\" text NOT NULL,\n  PRIMARY KEY (\"id\"),\n  CONSTRAINT \"tasks_last_execution_status_check_2a50099b\" CHECK (\"last_execution_status\" IN ('RUNNING', 'RETRYING', 'SUCCESS', 'FAILED')),\n  CONSTRAINT \"tasks_max_retry_range_b33ab198\" CHECK (max_retry >= 0 AND max_retry <= 10),\n  CONSTRAINT \"tasks_name_nonempty_370c3422\" CHECK (length(btrim(name)) > 0),\n  CONSTRAINT \"tasks_payload_is_object_ce603f9d\" CHECK (jsonb_typeof(payload) = 'object'),\n  CONSTRAINT \"tasks_retry_count_nonneg_01b8d94b\" CHECK (retry_count >= 0),\n  CONSTRAINT \"tasks_status_check_fe77e76c\" CHECK (\"status\" IN ('ACTIVE', 'PAUSED', 'DISABLED'))\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"tasks\" exists",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3))) AS \"result\"",
+        "params": [
+          "\"public\".\"tasks\"",
+          "r",
+          "p"
+        ],
+        "expectation": {
+          "expects": "present",
+          "object": "table \"tasks\""
+        }
+      }
+    ]
+  },
+  {
+    "id": "index.task_logs.task_logs_executed_id_idx_a8e2caf0",
+    "label": "Create index \"task_logs_executed_id_idx_a8e2caf0\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "task_logs_executed_id_idx_a8e2caf0",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"task_logs_executed_id_idx_a8e2caf0\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_executed_id_idx_a8e2caf0\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"task_logs_executed_id_idx_a8e2caf0\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"task_logs_executed_id_idx_a8e2caf0\"",
+        "sql": "CREATE INDEX \"task_logs_executed_id_idx_a8e2caf0\" ON \"public\".\"task_logs\" (\"executed_at\", \"id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"task_logs_executed_id_idx_a8e2caf0\" exists on \"task_logs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_executed_id_idx_a8e2caf0\"",
+          "i",
+          "I",
+          "\"public\".\"task_logs\"",
+          "btree",
+          "[\"executed_at\",\"id\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.task_logs.task_logs_execution_id_idx_cb99a0ac",
+    "label": "Create index \"task_logs_execution_id_idx_cb99a0ac\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "task_logs_execution_id_idx_cb99a0ac",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"task_logs_execution_id_idx_cb99a0ac\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_execution_id_idx_cb99a0ac\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"task_logs_execution_id_idx_cb99a0ac\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"task_logs_execution_id_idx_cb99a0ac\"",
+        "sql": "CREATE INDEX \"task_logs_execution_id_idx_cb99a0ac\" ON \"public\".\"task_logs\" (\"execution_id\", \"retry_count\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"task_logs_execution_id_idx_cb99a0ac\" exists on \"task_logs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_execution_id_idx_cb99a0ac\"",
+          "i",
+          "I",
+          "\"public\".\"task_logs\"",
+          "btree",
+          "[\"execution_id\",\"retry_count\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.task_logs.task_logs_slot_idempotency_uq_2e6e16ba",
+    "label": "Create index \"task_logs_slot_idempotency_uq_2e6e16ba\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "task_logs_slot_idempotency_uq_2e6e16ba",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"task_logs_slot_idempotency_uq_2e6e16ba\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_slot_idempotency_uq_2e6e16ba\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"task_logs_slot_idempotency_uq_2e6e16ba\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"task_logs_slot_idempotency_uq_2e6e16ba\"",
+        "sql": "CREATE UNIQUE INDEX \"task_logs_slot_idempotency_uq_2e6e16ba\" ON \"public\".\"task_logs\" (\"task_id\", \"scheduled_for\", \"retry_count\") WHERE (scheduled_for IS NOT NULL)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"task_logs_slot_idempotency_uq_2e6e16ba\" exists on \"task_logs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND \"i\".\"indisunique\" AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NOT NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_slot_idempotency_uq_2e6e16ba\"",
+          "i",
+          "I",
+          "\"public\".\"task_logs\"",
+          "btree",
+          "[\"task_id\",\"scheduled_for\",\"retry_count\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.task_logs.task_logs_status_executed_idx_9c537db0",
+    "label": "Create index \"task_logs_status_executed_idx_9c537db0\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "task_logs_status_executed_idx_9c537db0",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"task_logs_status_executed_idx_9c537db0\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_status_executed_idx_9c537db0\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"task_logs_status_executed_idx_9c537db0\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"task_logs_status_executed_idx_9c537db0\"",
+        "sql": "CREATE INDEX \"task_logs_status_executed_idx_9c537db0\" ON \"public\".\"task_logs\" (\"status\", \"executed_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"task_logs_status_executed_idx_9c537db0\" exists on \"task_logs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_status_executed_idx_9c537db0\"",
+          "i",
+          "I",
+          "\"public\".\"task_logs\"",
+          "btree",
+          "[\"status\",\"executed_at\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.task_logs.task_logs_task_executed_idx_d8b4749d",
+    "label": "Create index \"task_logs_task_executed_idx_d8b4749d\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "task_logs_task_executed_idx_d8b4749d",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"task_logs_task_executed_idx_d8b4749d\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_task_executed_idx_d8b4749d\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"task_logs_task_executed_idx_d8b4749d\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"task_logs_task_executed_idx_d8b4749d\"",
+        "sql": "CREATE INDEX \"task_logs_task_executed_idx_d8b4749d\" ON \"public\".\"task_logs\" (\"task_id\", \"executed_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"task_logs_task_executed_idx_d8b4749d\" exists on \"task_logs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_task_executed_idx_d8b4749d\"",
+          "i",
+          "I",
+          "\"public\".\"task_logs\"",
+          "btree",
+          "[\"task_id\",\"executed_at\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.task_logs.task_logs_task_id_idx_5d5ac774",
+    "label": "Create index \"task_logs_task_id_idx_5d5ac774\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "task_logs_task_id_idx_5d5ac774",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"task_logs_task_id_idx_5d5ac774\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_task_id_idx_5d5ac774\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"task_logs_task_id_idx_5d5ac774\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"task_logs_task_id_idx_5d5ac774\"",
+        "sql": "CREATE INDEX \"task_logs_task_id_idx_5d5ac774\" ON \"public\".\"task_logs\" (\"task_id\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"task_logs_task_id_idx_5d5ac774\" exists on \"task_logs\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"task_logs_task_id_idx_5d5ac774\"",
+          "i",
+          "I",
+          "\"public\".\"task_logs\"",
+          "btree",
+          "[\"task_id\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.tasks.tasks_due_poll_idx_7af6479b",
+    "label": "Create index \"tasks_due_poll_idx_7af6479b\" on \"tasks\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "tasks_due_poll_idx_7af6479b",
+        "table": "tasks"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"tasks_due_poll_idx_7af6479b\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tasks_due_poll_idx_7af6479b\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"tasks_due_poll_idx_7af6479b\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"tasks_due_poll_idx_7af6479b\"",
+        "sql": "CREATE INDEX \"tasks_due_poll_idx_7af6479b\" ON \"public\".\"tasks\" (\"next_run_at\") WHERE (status = 'ACTIVE' AND next_run_at IS NOT NULL)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"tasks_due_poll_idx_7af6479b\" exists on \"tasks\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NOT NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"tasks_due_poll_idx_7af6479b\"",
+          "i",
+          "I",
+          "\"public\".\"tasks\"",
+          "btree",
+          "[\"next_run_at\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.tasks.tasks_locked_at_idx_11501b88",
+    "label": "Create index \"tasks_locked_at_idx_11501b88\" on \"tasks\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "tasks_locked_at_idx_11501b88",
+        "table": "tasks"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"tasks_locked_at_idx_11501b88\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tasks_locked_at_idx_11501b88\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"tasks_locked_at_idx_11501b88\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"tasks_locked_at_idx_11501b88\"",
+        "sql": "CREATE INDEX \"tasks_locked_at_idx_11501b88\" ON \"public\".\"tasks\" (\"locked_at\") WHERE (locked_at IS NOT NULL)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"tasks_locked_at_idx_11501b88\" exists on \"tasks\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NOT NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"tasks_locked_at_idx_11501b88\"",
+          "i",
+          "I",
+          "\"public\".\"tasks\"",
+          "btree",
+          "[\"locked_at\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.tasks.tasks_status_created_idx_1bbe8adf",
+    "label": "Create index \"tasks_status_created_idx_1bbe8adf\" on \"tasks\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "index",
+        "name": "tasks_status_created_idx_1bbe8adf",
+        "table": "tasks"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"tasks_status_created_idx_1bbe8adf\" does not exist",
+        "sql": "SELECT (to_regclass($1)) IS NULL AS \"result\"",
+        "params": [
+          "\"public\".\"tasks_status_created_idx_1bbe8adf\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "index \"tasks_status_created_idx_1bbe8adf\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"tasks_status_created_idx_1bbe8adf\"",
+        "sql": "CREATE INDEX \"tasks_status_created_idx_1bbe8adf\" ON \"public\".\"tasks\" (\"status\", \"created_at\")",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"tasks_status_created_idx_1bbe8adf\" exists on \"tasks\" with the planned definition",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_class\" AS \"c\" INNER JOIN \"pg_index\" AS \"i\" ON \"i\".\"indexrelid\" = \"c\".\"oid\" INNER JOIN \"pg_am\" AS \"m\" ON \"m\".\"oid\" = \"c\".\"relam\" WHERE (\"c\".\"oid\" = to_regclass($1) AND (\"c\".\"relkind\" = $2 OR \"c\".\"relkind\" = $3) AND \"i\".\"indrelid\" = to_regclass($4) AND NOT (\"i\".\"indisunique\") AND \"m\".\"amname\" = $5 AND (\"i\".\"indexprs\" IS NULL AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"i\".\"indkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"i\".\"indrelid\" AND key_attribute.attnum = key_column.attnum) = ($6)::jsonb) AND \"i\".\"indpred\" IS NULL)) AS \"result\"",
+        "params": [
+          "\"public\".\"tasks_status_created_idx_1bbe8adf\"",
+          "i",
+          "I",
+          "\"public\".\"tasks\"",
+          "btree",
+          "[\"status\",\"created_at\"]"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "foreignKey.task_logs.task_logs_task_id_fkey",
+    "label": "Add foreign key \"task_logs_task_id_fkey\" on \"task_logs\"",
+    "operationClass": "additive",
+    "target": {
+      "id": "postgres",
+      "details": {
+        "schema": "public",
+        "objectType": "foreignKey",
+        "name": "task_logs_task_id_fkey",
+        "table": "task_logs"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure FK \"task_logs_task_id_fkey\" does not exist",
+        "sql": "SELECT NOT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3))) AS \"result\"",
+        "params": [
+          "task_logs_task_id_fkey",
+          "public",
+          "\"public\".\"task_logs\""
+        ],
+        "expectation": {
+          "expects": "absent",
+          "object": "FK \"task_logs_task_id_fkey\" on \"task_logs\""
+        }
+      }
+    ],
+    "execute": [
+      {
+        "description": "add FK \"task_logs_task_id_fkey\"",
+        "sql": "ALTER TABLE \"public\".\"task_logs\"\nADD CONSTRAINT \"task_logs_task_id_fkey\"\nFOREIGN KEY (\"task_id\")\nREFERENCES \"public\".\"tasks\" (\"id\")\nON DELETE CASCADE"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify FK \"task_logs_task_id_fkey\" exists with the planned columns, referenced table and actions",
+        "sql": "SELECT EXISTS (SELECT 1 AS \"one\" FROM \"pg_constraint\" AS \"c\" INNER JOIN \"pg_namespace\" AS \"n\" ON \"n\".\"oid\" = \"c\".\"connamespace\" WHERE (\"c\".\"conname\" = $1 AND \"n\".\"nspname\" = $2 AND \"c\".\"conrelid\" = to_regclass($3) AND \"c\".\"contype\" = $4 AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"conkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"conrelid\" AND key_attribute.attnum = key_column.attnum) = ($5)::jsonb AND \"c\".\"confrelid\" = to_regclass($6) AND (SELECT coalesce(jsonb_agg(key_attribute.attname ORDER BY key_column.position), '[]'::jsonb) FROM unnest(\"c\".\"confkey\"::int2[]) WITH ORDINALITY AS key_column(attnum, position) JOIN pg_attribute key_attribute ON key_attribute.attrelid = \"c\".\"confrelid\" AND key_attribute.attnum = key_column.attnum) = ($7)::jsonb AND \"c\".\"confdeltype\" = $8 AND \"c\".\"confupdtype\" = $9)) AS \"result\"",
+        "params": [
+          "task_logs_task_id_fkey",
+          "public",
+          "\"public\".\"task_logs\"",
+          "f",
+          "[\"task_id\"]",
+          "\"public\".\"tasks\"",
+          "[\"id\"]",
+          "c",
+          "a"
+        ]
+      }
+    ]
+  }
+]

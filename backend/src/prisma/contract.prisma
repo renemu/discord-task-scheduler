@@ -1,21 +1,75 @@
 // use prisma-8
 
-model User {
-  id        Int                @id @default(autoincrement())
-  email     String             @unique
-  username  String?
-  name      String?
-  posts     Post[]
-  createdAt DateTime           @default(now()) @onCreate(now())
-  updatedAt temporal.UpdatedAt
+enum TaskStatus {
+  @@type("pg/text@1")
+  ACTIVE   = "ACTIVE"
+  PAUSED   = "PAUSED"
+  DISABLED = "DISABLED"
 }
 
-model Post {
-  id        Int                @id @default(autoincrement())
-  title     String
-  content   String?
-  author    User               @relation(fields: [authorId], references: [id])
-  authorId  Int
-  createdAt DateTime           @default(now()) @onCreate(now())
-  updatedAt temporal.UpdatedAt
+enum ExecutionStatus {
+  @@type("pg/text@1")
+  RUNNING  = "RUNNING"
+  RETRYING = "RETRYING"
+  SUCCESS  = "SUCCESS"
+  FAILED   = "FAILED"
+}
+
+model Task {
+  id                  Uuid               @id @onCreate(uuid(7))
+  name                Varchar(255)
+  cronExpression      Varchar(100)       @map("cron_expression")
+  timezone            Varchar(64)        @default("UTC")
+  webhookUrl          Text               @map("webhook_url")
+  payload             Jsonb
+  maxRetry            Int                @default(3) @map("max_retry")
+  status              TaskStatus         @default(ACTIVE)
+  nextRunAt           DateTime?          @map("next_run_at")
+  lastRunAt           DateTime?          @map("last_run_at")
+  lastExecutionStatus ExecutionStatus?   @map("last_execution_status")
+  retryCount          Int                @default(0) @map("retry_count")
+  lockedAt            DateTime?          @map("locked_at")
+  lockedBy            Varchar(100)?      @map("locked_by")
+  createdAt           DateTime           @default(now()) @onCreate(now()) @map("created_at")
+  updatedAt           temporal.UpdatedAt @map("updated_at")
+
+  logs                TaskLog[]
+
+  @@index([nextRunAt], where: sql`status = 'ACTIVE' AND next_run_at IS NOT NULL`, name: "tasks_due_poll_idx")
+  @@index([status, createdAt], name: "tasks_status_created_idx")
+  @@index([lockedAt], where: sql`locked_at IS NOT NULL`, name: "tasks_locked_at_idx")
+
+  @@check(expression: sql`length(btrim(name)) > 0`, name: "tasks_name_nonempty")
+  @@check(expression: sql`max_retry >= 0 AND max_retry <= 10`, name: "tasks_max_retry_range")
+  @@check(expression: sql`retry_count >= 0`, name: "tasks_retry_count_nonneg")
+  @@check(expression: sql`jsonb_typeof(payload) = 'object'`, name: "tasks_payload_is_object")
+
+  @@map("tasks")
+}
+
+model TaskLog {
+  id           Uuid            @id @onCreate(uuid(7))
+  taskId       Uuid            @map("task_id")
+  executionId  Uuid            @onCreate(uuid(7)) @map("execution_id")
+  scheduledFor DateTime?       @map("scheduled_for")
+  executedAt   DateTime        @default(now()) @onCreate(now()) @map("executed_at")
+  status       ExecutionStatus
+  retryCount   Int             @default(0) @map("retry_count")
+  httpStatus   Int?            @map("http_status")
+  durationMs   Int?            @map("duration_ms")
+  message      Text?
+  createdAt    DateTime        @default(now()) @onCreate(now()) @map("created_at")
+
+  task         Task            @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  @@index([taskId, executedAt], name: "task_logs_task_executed_idx")
+  @@index([executedAt, id], name: "task_logs_executed_id_idx")
+  @@index([status, executedAt], name: "task_logs_status_executed_idx")
+  @@index([executionId, retryCount], name: "task_logs_execution_id_idx")
+  @@index([taskId, scheduledFor, retryCount], unique: true, where: sql`scheduled_for IS NOT NULL`, name: "task_logs_slot_idempotency_uq")
+
+  @@check(expression: sql`retry_count >= 0`, name: "task_logs_retry_count_nonneg")
+  @@check(expression: sql`duration_ms IS NULL OR duration_ms >= 0`, name: "task_logs_duration_nonneg")
+
+  @@map("task_logs")
 }

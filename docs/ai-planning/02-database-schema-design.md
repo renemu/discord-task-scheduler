@@ -1,9 +1,8 @@
 # 02 — Database Architecture, Schema Design & Prisma ORM 8 Migration Plan
 
-> **Stage:** Stage 2 — Database Design & Prisma Migration Planning  
-> **Status:** Draft — Awaiting Approval  
-> **Scope:** PostgreSQL schema architecture, ERD, indexing & constraints, scheduler/retry reliability mechanics, verified Prisma ORM 8 compatibility assessment, migration workflow, and database testing plan.  
-> **Strict Rule:** Planning only. No source code, Prisma contract files, dependencies, or database tables are modified until this document is approved.
+> **Stage:** Stage 2 / 2B — Database Design & Prisma ORM 8 Schema Implementation  
+> **Status:** Implemented (Stage 2B Complete — Migration Applied & Verified)  
+> **Scope:** PostgreSQL schema architecture, ERD, indexing & constraints, scheduler/retry reliability mechanics, verified Prisma ORM 8 compatibility assessment, migration workflow, database testing plan, and Stage 2B implementation record.
 
 ---
 
@@ -595,22 +594,20 @@ Following `backend/.agents/skills/nestjs-testing/SKILL.md`:
 
 ## 11. Actionable TODO Checklist (Stage 2 -> Stage 3 Handoff)
 
-> **Execution Gate:** Do not execute any item below until this database design plan is approved.
-
 ### Mandatory Checklist
-- [ ] **Approve Database Design:** Review and approve `docs/ai-planning/02-database-schema-design.md` (confirm UUIDv7 PKs, hard-delete `ON DELETE CASCADE`, 2-table design, and Vitest vs. Jest decision).
+- [x] **Approve Database Design:** Review and approve `docs/ai-planning/02-database-schema-design.md`.
 - [ ] **Clean Up Legacy Dependency & Env Alignment:**
-  - [ ] Remove unused Prisma 7 `@prisma/client` package from `backend/package.json`.
-  - [ ] Align `DATABASE_URL` credentials between root `.env.example` and `backend/.env` (targeting PostgreSQL 16).
-  - [ ] Ensure local/Docker PostgreSQL 15+ instance is running and reachable.
-- [ ] **Author Prisma ORM 8 Data Contract:**
-  - [ ] Replace starter `User`/`Post` models in `backend/src/prisma/contract.prisma` with `TaskStatus`, `ExecutionStatus`, `Task`, and `TaskLog` (preserving `// use prisma-8`).
-  - [ ] Run `npx prisma contract emit` and verify `src/prisma/contract.json` and `src/prisma/contract.d.ts` regenerate cleanly with zero diagnostics.
-- [ ] **Generate & Apply Initial Migration (No Manual SQL):**
-  - [ ] Run `npx prisma migration plan --name init_tasks_and_task_logs` to create the baseline migration under `backend/migrations/app/`.
-  - [ ] Inspect the planned operations with `npx prisma migration show <dir>` to verify `tasks`, `task_logs`, `jsonb`, partial indexes, unique idempotency index, foreign key cascade, and CHECK constraints.
-  - [ ] Run `npx prisma db migrate --advance-ref db` against a fresh PostgreSQL database.
-  - [ ] Verify live schema alignment via `npx prisma migration status` and `npx prisma db verify`.
+  - [ ] Remove unused Prisma 7 `@prisma/client` package from `backend/package.json` *(deferred to Stage 3 per Stage 2B dependency-freeze rule)*.
+  - [x] Align `DATABASE_URL` in `backend/.env` with local development PostgreSQL (`discord_scheduler`) matching `.env.example`.
+  - [x] Ensure local PostgreSQL 15+ instance is running and reachable (verified PostgreSQL 18.4 via DBngin).
+- [x] **Author Prisma ORM 8 Data Contract:**
+  - [x] Replace starter `User`/`Post` models in `backend/src/prisma/contract.prisma` with `TaskStatus`, `ExecutionStatus`, `Task`, and `TaskLog` (preserving `// use prisma-8`).
+  - [x] Run `npx prisma contract emit` and verify `src/prisma/contract.json` and `src/prisma/contract.d.ts` regenerate cleanly with zero diagnostics.
+- [x] **Generate & Apply Initial Migration (No Manual SQL):**
+  - [x] Run `npx prisma migration plan --name init` to create the baseline migration under `backend/migrations/app/20261121T0317_init/`.
+  - [x] Inspect the planned operations (`migration.ts`, `migration.json`, DDL preview) and confirm `tasks`, `task_logs`, `jsonb`, partial indexes, unique idempotency index, foreign key cascade, and CHECK constraints.
+  - [x] Run `npx prisma db migrate --advance-ref db` against the fresh local `discord_scheduler` database.
+  - [x] Verify live schema alignment via `npx prisma migration status`, `npx prisma migration log`, `npx prisma migration check`, `npx prisma db verify`, `npx prisma db schema`, `psql \d+`, and runtime CRUD/JSONB/FK/cascade smoke test.
 - [ ] **Wire NestJS Database Provider:**
   - [ ] Create a single global `DatabaseModule` / `DatabaseService` wrapping `src/prisma/db.ts` (one shared pool across the app) with `OnApplicationShutdown` calling `await db.close()`.
 - [ ] **Implement Database Test Suite:**
@@ -622,3 +619,85 @@ Following `backend/.agents/skills/nestjs-testing/SKILL.md`:
 - [ ] Add soft-delete support (`deleted_at DateTime?` on `tasks`) if preserving historical `task_logs` after task deletion is preferred over `ON DELETE CASCADE`.
 - [ ] Add a scheduled log-retention cleanup job (e.g., prune `task_logs` older than 30/90 days) to bound table size in long-running deployments.
 - [ ] Add custom Prisma 8 `slowQueryWarning` and dev `lints()` middleware in `backend/src/prisma/db.ts` for runtime query safety.
+
+---
+
+## 12. Stage 2B Implementation Record
+
+> **Executed:** 2026-11-21  
+> **Prisma CLI Version:** `8.0.0-rc.34` (`@prisma/orm-postgres@8.0.0-rc.24`)  
+> **Target Database:** Local development PostgreSQL `18.4 (DBngin.app)` — database `discord_scheduler` (verified empty prior to migration; credentials redacted).
+
+### 12.1 Implemented Database Schema
+
+Implemented directly in `backend/src/prisma/contract.prisma` (with `// use prisma-8`) and emitted to `backend/src/prisma/contract.json` & `backend/src/prisma/contract.d.ts`:
+
+- **Contract Hashes:**
+  - `storageHash`: `941b13726a67797a518e3d091afe007cc810f2527f8442e7e3f4559683b4af90`
+  - `executionHash`: `6ef80029298a9e4e7bda729642e29bacd7cd4f3aaf6fb5a5c7a9e253c5f4f71b`
+  - `profileHash`: `3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2`
+- **Enums (`pg/text@1` + PostgreSQL CHECK constraints):**
+  - `TaskStatus`: `ACTIVE`, `PAUSED`, `DISABLED`
+  - `ExecutionStatus`: `RUNNING`, `RETRYING`, `SUCCESS`, `FAILED`
+- **Table `public.tasks` (Model `Task`):**
+  - 16 columns: `id (uuid PK, UUIDv7)`, `name (varchar(255))`, `cron_expression (varchar(100))`, `timezone (varchar(64) DEFAULT 'UTC')`, `webhook_url (text)`, `payload (jsonb)`, `max_retry (int4 DEFAULT 3)`, `status (text DEFAULT 'ACTIVE')`, `next_run_at (timestamptz(3))`, `last_run_at (timestamptz(3))`, `last_execution_status (text)`, `retry_count (int4 DEFAULT 0)`, `locked_at (timestamptz(3))`, `locked_by (varchar(100))`, `created_at (timestamptz(3) DEFAULT now())`, `updated_at (timestamptz(3))`.
+  - 3 indexes: `tasks_due_poll_idx_7af6479b` (partial), `tasks_locked_at_idx_11501b88` (partial), `tasks_status_created_idx_1bbe8adf`.
+  - 6 CHECK constraints: `tasks_status_check_fe77e76c`, `tasks_last_execution_status_check_2a50099b`, `tasks_max_retry_range_b33ab198`, `tasks_name_nonempty_370c3422`, `tasks_payload_is_object_ce603f9d`, `tasks_retry_count_nonneg_01b8d94b`.
+- **Table `public.task_logs` (Model `TaskLog`):**
+  - 11 columns: `id (uuid PK, UUIDv7)`, `task_id (uuid FK -> tasks.id ON DELETE CASCADE)`, `execution_id (uuid, UUIDv7)`, `scheduled_for (timestamptz(3))`, `executed_at (timestamptz(3) DEFAULT now())`, `status (text)`, `retry_count (int4 DEFAULT 0)`, `http_status (int4)`, `duration_ms (int4)`, `message (text)`, `created_at (timestamptz(3) DEFAULT now())`.
+  - 6 indexes: `task_logs_executed_id_idx_a8e2caf0`, `task_logs_execution_id_idx_cb99a0ac`, `task_logs_slot_idempotency_uq_2e6e16ba` (partial UNIQUE where `scheduled_for IS NOT NULL`), `task_logs_status_executed_idx_9c537db0`, `task_logs_task_executed_idx_d8b4749d`, `task_logs_task_id_idx_5d5ac774`.
+  - 3 CHECK constraints: `task_logs_status_check_4bf092de`, `task_logs_retry_count_nonneg_01b8d94b`, `task_logs_duration_nonneg_2f6a87f3`.
+  - Foreign key: `task_logs_task_id_fkey (task_id) REFERENCES tasks(id) ON DELETE CASCADE`.
+
+### 12.2 Migration Name and Location
+
+- **Migration Name:** `20261121T0317_init` (`migrationHash`: `edd31d601a4517be9f32ff718ff6cbf4c82b2c2211659f82a8523093bbd8c630`)
+- **Migration Package Directory:** `backend/migrations/app/20261121T0317_init/` (`migration.json`, `migration.ts`, `ops.json`)
+- **Contract Snapshot:** `backend/migrations/snapshots/941b13726a67797a518e3d091afe007cc810f2527f8442e7e3f4559683b4af90/` (`contract.json`, `contract.d.ts`)
+- **Dev Ref Pointer:** `backend/migrations/app/refs/db.json` -> `941b13726a67797a518e3d091afe007cc810f2527f8442e7e3f4559683b4af90`
+
+### 12.3 Commands Executed
+
+```bash
+# Run from backend/
+npx prisma --version
+npx prisma contract emit
+npx prisma migration plan --name init
+npm run build
+npx prisma db migrate --show
+npx prisma db migrate --advance-ref db
+npx prisma migration status
+npx prisma migration log
+npx prisma migration check
+npx prisma db verify
+npx prisma db schema
+```
+
+### 12.4 Migration & Database Verification Results
+
+| Check | Result |
+|---|---|
+| `npx prisma contract emit` | **PASS** — Emitted `contract.json` & `contract.d.ts` with 0 errors (`Varchar(100)?` and `temporal.UpdatedAt @map("updated_at")` both compiled cleanly). |
+| `npm run build` | **PASS** — NestJS TypeScript build succeeded cleanly and copied `contract.json` to `dist/prisma/contract.json`. |
+| `npx prisma migration plan --name init` | **PASS** — Planned 13 operations (`from: (baseline)` -> `941b137`). |
+| `npx prisma db migrate --advance-ref db` | **PASS** — Applied 1 migration (13 operations), wrote PostgreSQL marker, and advanced `db` ref. |
+| `npx prisma migration status` | **PASS** — `✔ Up to date` (`941b137 @contract @db (db)`, `20261121T0317_init ✓ applied`). |
+| `npx prisma migration log` | **PASS** — Recorded applied migration `20261121T0317_init` (`∅ → 941b137`, 13 ops). |
+| `npx prisma migration check` | **PASS** — `✔ All checks passed` (artifact hashes & graph integrity valid). |
+| `npx prisma db verify` | **PASS** — `✔ Database marker and schema match contract`. |
+| `npx prisma db schema` & `psql \d+` | **PASS** — Both `public.tasks` and `public.task_logs` present with exact columns, `jsonb`, `timestamptz(3)`, all 9 indexes, all 9 CHECK constraints, and `ON DELETE CASCADE` FK. |
+| Prisma ORM 8 Runtime Smoke Test | **PASS** — Created `Task` (UUIDv7 ID, defaults `ACTIVE`/`maxRetry=3`/`UTC`, nested `jsonb` payload), created linked `TaskLog`, verified `.include('logs')`, deleted `Task`, and confirmed `ON DELETE CASCADE` removed child log (`0` rows left in DB). |
+
+### 12.5 Deviations from Approved Design
+
+- **Zero schema deviations:** Every table, column, PostgreSQL type, enum, index, CHECK constraint, and foreign key matches Section 3–8 verbatim.
+- **Migration slug:** Used `--name init` (producing `20261121T0317_init`) per explicit Stage 2B instructions rather than `init_tasks_and_task_logs`.
+- **Local `.env` alignment:** Updated `backend/.env` `DATABASE_URL` from the non-existent placeholder role to match the local development `discord_scheduler` database (same format as root `.env.example`; file remains git-ignored).
+- **Unused `@prisma/client@^7.10.1`:** Left untouched during Stage 2B to honor the strict no-dependency-changes rule; scheduled for cleanup in Stage 3.
+
+### 12.6 Remaining TODOs (Next Stages)
+
+1. Remove unused `@prisma/client` (`^7.10.1`) from `backend/package.json` and optionally run `npx prisma skills sync`.
+2. Wrap `backend/src/prisma/db.ts` in an injectable NestJS `DatabaseModule` / `DatabaseService` with `OnApplicationShutdown` calling `await db.close()`.
+3. Implement database integration test suite covering all 7 test cases from Section 10.3.
+4. Proceed to Stage 3: Backend API Key Auth, Task CRUD, NestJS Scheduler, Discord Webhook Executor, Retry Engine, Logs, and Dashboard Statistics.

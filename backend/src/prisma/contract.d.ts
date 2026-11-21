@@ -23,9 +23,9 @@ import type {
 } from '@prisma/orm-postgres/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'920a87b50729a867e21706dd0fa5c3739e273a84ed89eb2f3525633b2d6ef85c'>;
+  StorageHashBase<'941b13726a67797a518e3d091afe007cc810f2527f8442e7e3f4559683b4af90'>;
 export type ExecutionHash =
-  ExecutionHashBase<'0ff7f5c55037616d53a67c7c581c1178658b41c7a674a85dd59fc3b8f9dd8a49'>;
+  ExecutionHashBase<'6ef80029298a9e4e7bda729642e29bacd7cd4f3aaf6fb5a5c7a9e253c5f4f71b'>;
 export type ProfileHash =
   ProfileHashBase<'3916f444a8a17ad749191acf9e08dad97d1a327b88c2f1d45d12f240296aa8b2'>;
 
@@ -275,7 +275,28 @@ type DefaultLiteralValue<CodecId extends string, Encoded> = CodecId extends keyo
   : Encoded;
 type ParameterizedOutputTypeFunctions = PgParameterizedOutputTypes;
 
-type FieldTypeOverrides = {};
+type FieldTypeOverrides = {
+  readonly public: {
+    readonly models: {
+      readonly Task: {
+        readonly lastExecutionStatus: {
+          readonly output: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+          readonly input: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+        };
+        readonly status: {
+          readonly output: 'ACTIVE' | 'PAUSED' | 'DISABLED';
+          readonly input: 'ACTIVE' | 'PAUSED' | 'DISABLED';
+        };
+      };
+      readonly TaskLog: {
+        readonly status: {
+          readonly output: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+          readonly input: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+        };
+      };
+    };
+  };
+};
 export type FieldOutputTypes = FieldTypesFromDomain<
   ContractBase['domain']['namespaces'],
   CodecTypes,
@@ -292,7 +313,26 @@ export type FieldInputTypes = FieldTypesFromDomain<
   'input',
   ContractBase['storage']['namespaces']
 >;
-type ColumnTypeOverrides = {};
+type ColumnTypeOverrides = {
+  readonly public: {
+    readonly task_logs: {
+      readonly status: {
+        readonly output: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+        readonly input: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+      };
+    };
+    readonly tasks: {
+      readonly last_execution_status: {
+        readonly output: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+        readonly input: 'RUNNING' | 'RETRYING' | 'SUCCESS' | 'FAILED';
+      };
+      readonly status: {
+        readonly output: 'ACTIVE' | 'PAUSED' | 'DISABLED';
+        readonly input: 'ACTIVE' | 'PAUSED' | 'DISABLED';
+      };
+    };
+  };
+};
 export type StorageColumnTypes = ColumnTypesFromStorage<
   ContractBase['storage'],
   CodecTypes,
@@ -309,32 +349,47 @@ export type StorageColumnInputTypes = ColumnTypesFromStorage<
 >;
 
 export namespace Models {
-  export type public_Post = {
-    authorId: FieldOutputTypes['public']['Post']['authorId'];
-    content: FieldOutputTypes['public']['Post']['content'];
-    createdAt: FieldOutputTypes['public']['Post']['createdAt'];
-    id: FieldOutputTypes['public']['Post']['id'];
-    title: FieldOutputTypes['public']['Post']['title'];
-    updatedAt: FieldOutputTypes['public']['Post']['updatedAt'];
-    author: public_User;
-    readonly [RelationKeys]?: 'author';
+  export type public_Task = {
+    createdAt: FieldOutputTypes['public']['Task']['createdAt'];
+    cronExpression: FieldOutputTypes['public']['Task']['cronExpression'];
+    id: FieldOutputTypes['public']['Task']['id'];
+    lastExecutionStatus: FieldOutputTypes['public']['Task']['lastExecutionStatus'];
+    lastRunAt: FieldOutputTypes['public']['Task']['lastRunAt'];
+    lockedAt: FieldOutputTypes['public']['Task']['lockedAt'];
+    lockedBy: FieldOutputTypes['public']['Task']['lockedBy'];
+    maxRetry: FieldOutputTypes['public']['Task']['maxRetry'];
+    name: FieldOutputTypes['public']['Task']['name'];
+    nextRunAt: FieldOutputTypes['public']['Task']['nextRunAt'];
+    payload: FieldOutputTypes['public']['Task']['payload'];
+    retryCount: FieldOutputTypes['public']['Task']['retryCount'];
+    status: FieldOutputTypes['public']['Task']['status'];
+    timezone: FieldOutputTypes['public']['Task']['timezone'];
+    updatedAt: FieldOutputTypes['public']['Task']['updatedAt'];
+    webhookUrl: FieldOutputTypes['public']['Task']['webhookUrl'];
+    logs: public_TaskLog[];
+    readonly [RelationKeys]?: 'logs';
   };
-  export type public_User = {
-    createdAt: FieldOutputTypes['public']['User']['createdAt'];
-    email: FieldOutputTypes['public']['User']['email'];
-    id: FieldOutputTypes['public']['User']['id'];
-    name: FieldOutputTypes['public']['User']['name'];
-    updatedAt: FieldOutputTypes['public']['User']['updatedAt'];
-    username: FieldOutputTypes['public']['User']['username'];
-    posts: public_Post[];
-    readonly [RelationKeys]?: 'posts';
+  export type public_TaskLog = {
+    createdAt: FieldOutputTypes['public']['TaskLog']['createdAt'];
+    durationMs: FieldOutputTypes['public']['TaskLog']['durationMs'];
+    executedAt: FieldOutputTypes['public']['TaskLog']['executedAt'];
+    executionId: FieldOutputTypes['public']['TaskLog']['executionId'];
+    httpStatus: FieldOutputTypes['public']['TaskLog']['httpStatus'];
+    id: FieldOutputTypes['public']['TaskLog']['id'];
+    message: FieldOutputTypes['public']['TaskLog']['message'];
+    retryCount: FieldOutputTypes['public']['TaskLog']['retryCount'];
+    scheduledFor: FieldOutputTypes['public']['TaskLog']['scheduledFor'];
+    status: FieldOutputTypes['public']['TaskLog']['status'];
+    taskId: FieldOutputTypes['public']['TaskLog']['taskId'];
+    task: public_Task;
+    readonly [RelationKeys]?: 'task';
   };
 }
 
 export declare const models: {
   public: {
-    Post: Models.public_Post;
-    User: Models.public_User;
+    Task: Models.public_Task;
+    TaskLog: Models.public_TaskLog;
   };
 };
 
@@ -356,21 +411,9 @@ type ContractBase = Omit<
         readonly kind: 'postgres-schema';
         readonly entries: {
           readonly table: {
-            readonly Post: {
+            readonly task_logs: {
               columns: {
-                readonly authorId: {
-                  readonly dataType: 'pg/int4';
-                  readonly codecId: 'pg/int4@1';
-                  readonly nullable: false;
-                  readonly many: false;
-                };
-                readonly content: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
-                  readonly many: false;
-                };
-                readonly createdAt: {
+                readonly created_at: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
                   readonly nullable: false;
@@ -378,27 +421,71 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
+                readonly duration_ms: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly executed_at: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: false;
+                  readonly default: { readonly kind: 'function'; readonly expression: 'now()' };
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly execution_id: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly http_status: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
                 readonly id: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly message: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: true;
+                  readonly many: false;
+                };
+                readonly retry_count: {
                   readonly dataType: 'pg/int4';
                   readonly codecId: 'pg/int4@1';
                   readonly nullable: false;
                   readonly default: {
-                    readonly kind: 'function';
-                    readonly expression: 'autoincrement()';
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
                   };
                   readonly many: false;
                 };
-                readonly title: {
+                readonly scheduled_for: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly status: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: false;
                   readonly many: false;
                 };
-                readonly updatedAt: {
-                  readonly dataType: 'pg/timestamptz';
-                  readonly codecId: 'pg/timestamptz-date@1';
+                readonly task_id: {
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
                   readonly nullable: false;
-                  readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
               };
@@ -406,9 +493,40 @@ type ContractBase = Omit<
               uniques: readonly [];
               indexes: readonly [
                 {
-                  readonly name: 'Post_authorId_idx_e47547ed';
-                  readonly prefix: 'Post_authorId_idx';
-                  readonly columns: readonly ['authorId'];
+                  readonly name: 'task_logs_executed_id_idx_a8e2caf0';
+                  readonly prefix: 'task_logs_executed_id_idx';
+                  readonly columns: readonly ['executed_at', 'id'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'task_logs_execution_id_idx_cb99a0ac';
+                  readonly prefix: 'task_logs_execution_id_idx';
+                  readonly columns: readonly ['execution_id', 'retry_count'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'task_logs_slot_idempotency_uq_2e6e16ba';
+                  readonly prefix: 'task_logs_slot_idempotency_uq';
+                  readonly columns: readonly ['task_id', 'scheduled_for', 'retry_count'];
+                  readonly where: 'scheduled_for IS NOT NULL';
+                  readonly unique: true;
+                },
+                {
+                  readonly name: 'task_logs_status_executed_idx_9c537db0';
+                  readonly prefix: 'task_logs_status_executed_idx';
+                  readonly columns: readonly ['status', 'executed_at'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'task_logs_task_executed_idx_d8b4749d';
+                  readonly prefix: 'task_logs_task_executed_idx';
+                  readonly columns: readonly ['task_id', 'executed_at'];
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'task_logs_task_id_idx_5d5ac774';
+                  readonly prefix: 'task_logs_task_id_idx';
+                  readonly columns: readonly ['task_id'];
                   readonly unique: false;
                 },
               ];
@@ -416,20 +534,20 @@ type ContractBase = Omit<
                 {
                   readonly source: {
                     readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'Post';
-                    readonly columns: readonly ['authorId'];
+                    readonly tableName: 'task_logs';
+                    readonly columns: readonly ['task_id'];
                   };
                   readonly target: {
                     readonly namespaceId: 'public' & NamespaceId;
-                    readonly tableName: 'User';
+                    readonly tableName: 'tasks';
                     readonly columns: readonly ['id'];
                   };
                 },
               ];
             };
-            readonly User: {
+            readonly tasks: {
               columns: {
-                readonly createdAt: {
+                readonly created_at: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
                   readonly nullable: false;
@@ -437,46 +555,156 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
-                readonly email: {
-                  readonly dataType: 'pg/text';
-                  readonly codecId: 'pg/text@1';
+                readonly cron_expression: {
+                  readonly dataType: 'pg/varchar';
+                  readonly codecId: 'sql/varchar@1';
                   readonly nullable: false;
+                  readonly typeParams: { readonly length: 100 };
                   readonly many: false;
                 };
                 readonly id: {
-                  readonly dataType: 'pg/int4';
-                  readonly codecId: 'pg/int4@1';
+                  readonly dataType: 'pg/uuid';
+                  readonly codecId: 'pg/uuid@1';
                   readonly nullable: false;
-                  readonly default: {
-                    readonly kind: 'function';
-                    readonly expression: 'autoincrement()';
-                  };
                   readonly many: false;
                 };
-                readonly name: {
+                readonly last_execution_status: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
                   readonly nullable: true;
                   readonly many: false;
                 };
-                readonly updatedAt: {
+                readonly last_run_at: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly locked_at: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly locked_by: {
+                  readonly dataType: 'pg/varchar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly length: 100 };
+                  readonly many: false;
+                };
+                readonly max_retry: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 3>;
+                  };
+                  readonly many: false;
+                };
+                readonly name: {
+                  readonly dataType: 'pg/varchar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: false;
+                  readonly typeParams: { readonly length: 255 };
+                  readonly many: false;
+                };
+                readonly next_run_at: {
+                  readonly dataType: 'pg/timestamptz';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly nullable: true;
+                  readonly typeParams: { readonly precision: 3 };
+                  readonly many: false;
+                };
+                readonly payload: {
+                  readonly dataType: 'pg/jsonb';
+                  readonly codecId: 'pg/jsonb@1';
+                  readonly nullable: false;
+                  readonly many: false;
+                };
+                readonly retry_count: {
+                  readonly dataType: 'pg/int4';
+                  readonly codecId: 'pg/int4@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/int4@1', 0>;
+                  };
+                  readonly many: false;
+                };
+                readonly status: {
+                  readonly dataType: 'pg/text';
+                  readonly codecId: 'pg/text@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'pg/text@1', 'ACTIVE'>;
+                  };
+                  readonly many: false;
+                };
+                readonly timezone: {
+                  readonly dataType: 'pg/varchar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly nullable: false;
+                  readonly default: {
+                    readonly kind: 'literal';
+                    readonly value: DefaultLiteralValue<'sql/varchar@1', 'UTC'>;
+                  };
+                  readonly typeParams: { readonly length: 64 };
+                  readonly many: false;
+                };
+                readonly updated_at: {
                   readonly dataType: 'pg/timestamptz';
                   readonly codecId: 'pg/timestamptz-date@1';
                   readonly nullable: false;
                   readonly typeParams: { readonly precision: 3 };
                   readonly many: false;
                 };
-                readonly username: {
+                readonly webhook_url: {
                   readonly dataType: 'pg/text';
                   readonly codecId: 'pg/text@1';
-                  readonly nullable: true;
+                  readonly nullable: false;
                   readonly many: false;
                 };
               };
               primaryKey: { readonly columns: readonly ['id'] };
-              uniques: readonly [{ readonly columns: readonly ['email'] }];
-              indexes: readonly [];
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'tasks_due_poll_idx_7af6479b';
+                  readonly prefix: 'tasks_due_poll_idx';
+                  readonly columns: readonly ['next_run_at'];
+                  readonly where: "status = 'ACTIVE' AND next_run_at IS NOT NULL";
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'tasks_locked_at_idx_11501b88';
+                  readonly prefix: 'tasks_locked_at_idx';
+                  readonly columns: readonly ['locked_at'];
+                  readonly where: 'locked_at IS NOT NULL';
+                  readonly unique: false;
+                },
+                {
+                  readonly name: 'tasks_status_created_idx_1bbe8adf';
+                  readonly prefix: 'tasks_status_created_idx';
+                  readonly columns: readonly ['status', 'created_at'];
+                  readonly unique: false;
+                },
+              ];
               foreignKeys: readonly [];
+            };
+          };
+          readonly valueSet: {
+            readonly ExecutionStatus: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['RUNNING', 'RETRYING', 'SUCCESS', 'FAILED'];
+            };
+            readonly TaskStatus: {
+              readonly kind: 'valueSet';
+              readonly values: readonly ['ACTIVE', 'PAUSED', 'DISABLED'];
             };
           };
         };
@@ -489,23 +717,15 @@ type ContractBase = Omit<
   readonly target: 'postgres';
   readonly targetFamily: 'sql';
   readonly roots: {
-    readonly Post: { readonly namespace: 'public' & NamespaceId; readonly model: 'Post' };
-    readonly User: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
+    readonly task_logs: { readonly namespace: 'public' & NamespaceId; readonly model: 'TaskLog' };
+    readonly tasks: { readonly namespace: 'public' & NamespaceId; readonly model: 'Task' };
   };
   readonly domain: {
     readonly namespaces: {
       readonly public: {
         readonly models: {
-          readonly Post: {
+          readonly Task: {
             readonly fields: {
-              readonly authorId: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly content: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
               readonly createdAt: {
                 readonly nullable: false;
                 readonly type: {
@@ -514,13 +734,85 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                 };
               };
+              readonly cronExpression: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 100 };
+                };
+              };
               readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly lastExecutionStatus: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly lastRunAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly lockedAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly lockedBy: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 100 };
+                };
+              };
+              readonly maxRetry: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
               };
-              readonly title: {
+              readonly name: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 255 };
+                };
+              };
+              readonly nextRunAt: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly payload: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/jsonb@1' };
+              };
+              readonly retryCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly status: {
                 readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly timezone: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/varchar@1';
+                  readonly typeParams: { readonly length: 64 };
+                };
               };
               readonly updatedAt: {
                 readonly nullable: false;
@@ -530,89 +822,167 @@ type ContractBase = Omit<
                   readonly typeParams: { readonly precision: 3 };
                 };
               };
+              readonly webhookUrl: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
             };
             readonly relations: {
-              readonly author: {
-                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'User' };
+              readonly logs: {
+                readonly to: {
+                  readonly namespace: 'public' & NamespaceId;
+                  readonly model: 'TaskLog';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['taskId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'tasks';
+              readonly namespaceId: 'public';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly cronExpression: { readonly column: 'cron_expression' };
+                readonly id: { readonly column: 'id' };
+                readonly lastExecutionStatus: { readonly column: 'last_execution_status' };
+                readonly lastRunAt: { readonly column: 'last_run_at' };
+                readonly lockedAt: { readonly column: 'locked_at' };
+                readonly lockedBy: { readonly column: 'locked_by' };
+                readonly maxRetry: { readonly column: 'max_retry' };
+                readonly name: { readonly column: 'name' };
+                readonly nextRunAt: { readonly column: 'next_run_at' };
+                readonly payload: { readonly column: 'payload' };
+                readonly retryCount: { readonly column: 'retry_count' };
+                readonly status: { readonly column: 'status' };
+                readonly timezone: { readonly column: 'timezone' };
+                readonly updatedAt: { readonly column: 'updated_at' };
+                readonly webhookUrl: { readonly column: 'webhook_url' };
+              };
+            };
+          };
+          readonly TaskLog: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly durationMs: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly executedAt: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly executionId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly httpStatus: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+              readonly message: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly retryCount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
+              };
+              readonly scheduledFor: {
+                readonly nullable: true;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'pg/timestamptz-date@1';
+                  readonly typeParams: { readonly precision: 3 };
+                };
+              };
+              readonly status: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
+              };
+              readonly taskId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/uuid@1' };
+              };
+            };
+            readonly relations: {
+              readonly task: {
+                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Task' };
                 readonly cardinality: 'N:1';
                 readonly nullable: false;
                 readonly on: {
-                  readonly localFields: readonly ['authorId'];
+                  readonly localFields: readonly ['taskId'];
                   readonly targetFields: readonly ['id'];
                 };
               };
             };
             readonly storage: {
-              readonly table: 'Post';
+              readonly table: 'task_logs';
               readonly namespaceId: 'public';
               readonly fields: {
-                readonly authorId: { readonly column: 'authorId' };
-                readonly content: { readonly column: 'content' };
-                readonly createdAt: { readonly column: 'createdAt' };
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly durationMs: { readonly column: 'duration_ms' };
+                readonly executedAt: { readonly column: 'executed_at' };
+                readonly executionId: { readonly column: 'execution_id' };
+                readonly httpStatus: { readonly column: 'http_status' };
                 readonly id: { readonly column: 'id' };
-                readonly title: { readonly column: 'title' };
-                readonly updatedAt: { readonly column: 'updatedAt' };
+                readonly message: { readonly column: 'message' };
+                readonly retryCount: { readonly column: 'retry_count' };
+                readonly scheduledFor: { readonly column: 'scheduled_for' };
+                readonly status: { readonly column: 'status' };
+                readonly taskId: { readonly column: 'task_id' };
               };
             };
           };
-          readonly User: {
-            readonly fields: {
-              readonly createdAt: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/timestamptz-date@1';
-                  readonly typeParams: { readonly precision: 3 };
-                };
-              };
-              readonly email: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly id: {
-                readonly nullable: false;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/int4@1' };
-              };
-              readonly name: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-              readonly updatedAt: {
-                readonly nullable: false;
-                readonly type: {
-                  readonly kind: 'scalar';
-                  readonly codecId: 'pg/timestamptz-date@1';
-                  readonly typeParams: { readonly precision: 3 };
-                };
-              };
-              readonly username: {
-                readonly nullable: true;
-                readonly type: { readonly kind: 'scalar'; readonly codecId: 'pg/text@1' };
-              };
-            };
-            readonly relations: {
-              readonly posts: {
-                readonly to: { readonly namespace: 'public' & NamespaceId; readonly model: 'Post' };
-                readonly cardinality: '1:N';
-                readonly on: {
-                  readonly localFields: readonly ['id'];
-                  readonly targetFields: readonly ['authorId'];
-                };
-              };
-            };
-            readonly storage: {
-              readonly table: 'User';
-              readonly namespaceId: 'public';
-              readonly fields: {
-                readonly createdAt: { readonly column: 'createdAt' };
-                readonly email: { readonly column: 'email' };
-                readonly id: { readonly column: 'id' };
-                readonly name: { readonly column: 'name' };
-                readonly updatedAt: { readonly column: 'updatedAt' };
-                readonly username: { readonly column: 'username' };
-              };
-            };
+        };
+        readonly enum: {
+          readonly ExecutionStatus: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'RUNNING'; readonly value: 'RUNNING' },
+              { readonly name: 'RETRYING'; readonly value: 'RETRYING' },
+              { readonly name: 'SUCCESS'; readonly value: 'SUCCESS' },
+              { readonly name: 'FAILED'; readonly value: 'FAILED' },
+            ];
           };
+          readonly TaskStatus: {
+            readonly codecId: 'pg/text@1';
+            readonly members: readonly [
+              { readonly name: 'ACTIVE'; readonly value: 'ACTIVE' },
+              { readonly name: 'PAUSED'; readonly value: 'PAUSED' },
+              { readonly name: 'DISABLED'; readonly value: 'DISABLED' },
+            ];
+          };
+        };
+        readonly enumMemberTypes?: {
+          readonly ExecutionStatus: readonly [
+            { readonly name: 'RUNNING'; readonly value: 'RUNNING' },
+            { readonly name: 'RETRYING'; readonly value: 'RETRYING' },
+            { readonly name: 'SUCCESS'; readonly value: 'SUCCESS' },
+            { readonly name: 'FAILED'; readonly value: 'FAILED' },
+          ];
+          readonly TaskStatus: readonly [
+            { readonly name: 'ACTIVE'; readonly value: 'ACTIVE' },
+            { readonly name: 'PAUSED'; readonly value: 'PAUSED' },
+            { readonly name: 'DISABLED'; readonly value: 'DISABLED' },
+          ];
         };
       };
     };
@@ -657,8 +1027,56 @@ type ContractBase = Omit<
             readonly params: { readonly precision: 3 };
           };
           readonly ref: {
-            readonly entry: 'Post';
-            readonly field: 'createdAt';
+            readonly entry: 'task_logs';
+            readonly field: 'created_at';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
+            readonly entry: 'task_logs';
+            readonly field: 'executed_at';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv7'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'task_logs';
+            readonly field: 'execution_id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv7'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'task_logs';
+            readonly field: 'id';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: {
+            readonly id: 'timestampNow';
+            readonly kind: 'generator';
+            readonly params: { readonly precision: 3 };
+          };
+          readonly ref: {
+            readonly entry: 'tasks';
+            readonly field: 'created_at';
+            readonly namespace: 'public';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv7'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'tasks';
+            readonly field: 'id';
             readonly namespace: 'public';
           };
         },
@@ -674,37 +1092,8 @@ type ContractBase = Omit<
             readonly params: { readonly precision: 3 };
           };
           readonly ref: {
-            readonly entry: 'Post';
-            readonly field: 'updatedAt';
-            readonly namespace: 'public';
-          };
-        },
-        {
-          readonly onCreate: {
-            readonly id: 'timestampNow';
-            readonly kind: 'generator';
-            readonly params: { readonly precision: 3 };
-          };
-          readonly ref: {
-            readonly entry: 'User';
-            readonly field: 'createdAt';
-            readonly namespace: 'public';
-          };
-        },
-        {
-          readonly onCreate: {
-            readonly id: 'timestampNow';
-            readonly kind: 'generator';
-            readonly params: { readonly precision: 3 };
-          };
-          readonly onUpdate: {
-            readonly id: 'timestampNow';
-            readonly kind: 'generator';
-            readonly params: { readonly precision: 3 };
-          };
-          readonly ref: {
-            readonly entry: 'User';
-            readonly field: 'updatedAt';
+            readonly entry: 'tasks';
+            readonly field: 'updated_at';
             readonly namespace: 'public';
           };
         },
