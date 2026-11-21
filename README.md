@@ -304,3 +304,39 @@ docker compose down -v
 | `postgres:16-alpine` | PostgreSQL relational database for persistent tasks, JSONB payloads, and execution logs |
 | `node:22-alpine` | Lightweight container runtime for backend and frontend Docker images |
 
+---
+
+## 7. Evidence & Verification Screenshots
+
+### Web Dashboard (`http://localhost:3000`)
+![Web Dashboard](docs/evidence/web-dashboard.png)
+
+### Live Discord Webhook Delivery
+![Discord Bot Chat Delivery](docs/evidence/discord-bot-chat.png)
+
+### Docker Compose Build & Startup (`docker compose up --build -d`)
+![Docker Compose Build](docs/evidence/docker-compose-up-build.png)
+
+### Running Containers (`docker compose ps`)
+![Docker PS Output](docs/evidence/docker-ps.png)
+
+### Docker Desktop Containers View
+![Docker Desktop Containers](docs/evidence/desktop-docker-container.png)
+
+---
+
+## 8. Development Time Log
+
+- **Started:** `09:43 WIB` (project folder initialization)
+- **Finished:** `11:45 WIB` (Docker Compose build, running containers & live Discord webhook verification)
+- **Total Elapsed Time:** **~2 hours 2 minutes** *(~1h 40m active implementation + ~22m review & live verification)*
+
+| Phase | Time (WIB) | Duration | Key Deliverables |
+|---|---|---|---|
+| **1. Workspace & Initial Project Setup** | `09:43 – 10:02` | ~19 min | Monorepo folder setup (`backend/`, `frontend/`, `docs/`), NestJS 12 + Next.js 16 + Prisma ORM 8 scaffold, `01-project-setup.md` |
+| **2. Database Design & Prisma ORM 8 Migration** | `10:07 – 10:22` | ~15 min | `02-database-schema-design.md`, `contract.prisma` (`tasks`, `task_logs`), `contract emit`, `migration plan --name init`, `db migrate` & verification |
+| **3. Backend Implementation & Unit/E2E Tests** | `10:29 – 10:38` | ~9 min | API Key Guard, Task CRUD, Scheduler Engine, Discord Axios Service, Retry & Backoff, Execution Logs, Dashboard Stats, 49 unit tests + 5 E2E tests |
+| **4. Frontend UI & Mobile Responsive Layout** | `10:40 – 11:05` | ~25 min | Dribbble-inspired Next.js 16 UI, server-side BFF proxy, Dashboard, Task Form + Live Discord Preview, Logs Explorer, mobile-first bottom nav & cards |
+| **5. Documentation, Dockerization & Live Verification** | `11:14 – 11:45` | ~31 min | `03-api-endpoint-planning.md`, `04-unit-test-generation.md`, `README.md`, `Dockerfile` (backend & frontend), `docker-compose.yml`, live `docker compose up --build` & Discord delivery evidence |
+
+
